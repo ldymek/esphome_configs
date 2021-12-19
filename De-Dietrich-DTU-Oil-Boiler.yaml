@@ -1,0 +1,123 @@
+esphome:
+  name: esp-kotlownia
+  platform: ESP8266
+  board: nodemcuv2
+
+wifi:
+  ssid: "zzz"
+  password: "zzz"
+  domain: .home
+ 
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Kotlownia Fallback Hotspot"
+    password: "zzz"
+
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+# Czujniki temperatury
+
+dallas:
+  - pin: GPIO2
+
+sensor:
+  - platform: dallas
+    address: 0x300114551101AA28
+    name: "Temperatura CO"
+    id: grzejniki_zasilenie_temp
+  - platform: dallas
+    address: 0x4501204D3FA9F728
+    name: "Temperatura CO - powrót"
+    id: grzejniki_powrot_temp
+  - platform: dallas
+    address: 0x60011454E428AA28
+    name: "Temperatura CWU"
+    id: zasobnik_temp
+  - platform: dallas
+    address: 0xAE01144886BCAA28
+    name: "Temperatura przy gruncie - filtry"
+    id: temperatura_grunt_filtry
+    
+# Czujnik Netatmo z HA:
+  - platform: homeassistant
+    entity_id: sensor.sypialnia_air_temperature_2
+    id: temperatura_w_sypialni
+    internal: true
+  - platform: homeassistant
+    entity_id: sensor.netatmo_outdoor_temperature
+    id: temperatura_na_zewnatrz
+    internal: true
+    
+# Przełącznik 4 portowy
+switch:
+  - platform: gpio
+    name: "Piec - grzejniki"
+    id: piec_grzejniki
+    pin:
+      number: 16
+      inverted: yes
+  - platform: gpio
+    name: "Piec - histereza"
+    id: piec_histereza
+    pin:
+      number: 14
+      inverted: yes
+  - platform: gpio
+    name: "Pompa grzejniki"
+    id: pompa_grzejniki
+    pin:
+      number: 12
+      inverted: yes
+  - platform: gpio
+    name: "Zawór mieszający"
+    id: zawor
+    pin:
+      number: 13
+      inverted: yes
+      
+# Termostat histereza wody
+climate:
+  - platform: bang_bang
+    name: "Temperatura wody CO"
+    sensor: grzejniki_zasilenie_temp
+    default_target_temperature_low: 42 °C
+    default_target_temperature_high: 50 °C
+    visual:
+      min_temperature: 30
+      max_temperature: 70
+    heat_action:
+      - switch.turn_on: piec_histereza
+      - switch.turn_on: zawor
+    idle_action:
+      - switch.turn_off: piec_histereza
+      - delay: 360s
+      - switch.turn_off: zawor
+    away_config:
+      default_target_temperature_low: 35 °C
+      default_target_temperature_high: 45 °C
+    
+# Termostat pokojowy    
+  - platform: bang_bang
+    name: "Temperatura w mieszkaniu"
+    sensor: temperatura_w_sypialni
+    default_target_temperature_low: 22 °C
+    default_target_temperature_high: 23 °C
+    heat_action:
+      - switch.turn_on: piec_grzejniki
+      - switch.turn_on: pompa_grzejniki
+    idle_action:
+      - switch.turn_off: piec_grzejniki
+      - switch.turn_off: pompa_grzejniki
+    away_config:
+      default_target_temperature_low: 19 °C
+      default_target_temperature_high: 21 °C
